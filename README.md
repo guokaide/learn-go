@@ -1,12 +1,161 @@
 # learn-go
 
+## Rolling Window Counter
+
+### 问题
+
+> 参考 Hystrix 实现一个滑动窗口计数器。
+
+### 解决
+
+```go
+package go_hystrix
+
+import (
+	"sync"
+	"time"
+
+	"examples/go-hystrix/timex"
+)
+
+type RollingWindow struct {
+	// 互斥锁
+	lock sync.Mutex
+	// 时间窗口
+	w *Window
+	// 时间窗口桶的个数
+	size int
+	// 时间窗口中每个桶的时间间隔
+	interval time.Duration
+	// 当前要写入的桶的 offset
+	offset int
+	// 上次更新的时间
+	lastTime time.Duration
+}
+
+func (rw *RollingWindow) Add(v float64) {
+	rw.lock.Lock()
+	defer rw.lock.Unlock()
+	rw.updateOffset()
+	rw.w.Add(rw.offset, v)
+}
+
+func (rw *RollingWindow) Reduce(fn func(rw *Bucket)) {
+	rw.lock.Lock()
+	defer rw.lock.Unlock()
+
+	// 未过期的元素个数
+	var valid int
+	span := rw.span()
+	if span == 0 {
+		valid = rw.size - 1
+	} else {
+		valid = rw.size - span
+	}
+	if valid > 0 {
+		// 有效元素 [rw.offset + span + 1, rw.offset + valid]
+		offset := (rw.offset + span + 1) % rw.size
+		rw.w.Reduce(offset, valid, fn)
+	}
+}
+
+func (rw *RollingWindow) updateOffset() {
+	span := rw.span()
+	if span <= 0 {
+		return
+	}
+	// 过期的桶全部 Reset
+	for i := 0; i < span; i++ {
+		rw.w.buckets[rw.offset+span+1].Reset()
+	}
+	// 更新当前 offset
+	rw.offset = rw.offset + span + 1
+	// 更新当前 offset 对应的桶的开始时间 lastTime = now - (now - lastTime) % interval
+	now := timex.Now()
+	rw.lastTime = now - (now-rw.lastTime)%rw.interval
+}
+
+// span 计算从 lastTime 到当前时间过期了多少个桶
+// 过期的桶的个数范围 [0, rw.size]
+func (rw *RollingWindow) span() int {
+	offset := int(timex.Since(rw.lastTime) / rw.interval)
+	if offset >= 0 && offset < rw.size {
+		return offset
+	}
+	return rw.size
+}
+
+// Window 某个时间周期对应的滑动窗口，用于存储一个时间周期内的统计值
+type Window struct {
+	buckets []*Bucket
+	size    int
+}
+
+// Add 更新时间窗口某个桶的统计值
+func (w *Window) Add(offset int, v float64) {
+	w.buckets[offset%w.size].Add(v)
+}
+
+// Reduce 聚合一个窗口内的统计数据
+func (w *Window) Reduce(start int, count int, fn func(b *Bucket)) {
+	for i := 0; i < count; i++ {
+		fn(w.buckets[(start+i)%w.size])
+	}
+}
+
+// Bucket 某个时间范围对应的桶，用于存储该时间范围的统计值
+// 用某个桶开始的时间 startTime 代表这个桶
+type Bucket struct {
+	// Sum 一个时间范围内统计值的和
+	Sum float64
+	// Count 一个时间范围内 Add 调用次数
+	Count int64
+}
+
+// Add 更新某个桶的统计值
+func (b *Bucket) Add(v float64) {
+	b.Sum += v
+	b.Count++
+}
+
+func (b *Bucket) Reset() {
+	b.Sum = 0
+	b.Count = 0
+}
+```
+
+```go 
+package go_hystrix
+
+import "time"
+
+// Use the long enough past time as start time, in case timex.Now() - lastTime equals 0.
+var initTime = time.Now().AddDate(-1, -1, -1)
+
+// Now returns a relative time duration since initTime
+func Now() time.Duration {
+	return time.Since(initTime)
+}
+
+// Since returns a diff since given d
+func Since(d time.Duration) time.Duration {
+	return time.Since(initTime) - d
+}
+```
+
+### 参考
+
+* https://talkgo.org/t/topic/3035
+
+
+
 ## Project Structure
 
 ### 问题
 
 > 按照自己的构想，写一个项目满足基本的目录结构和工程，代码需要包含对数据层、业务层、API 注册，以及 main 函数对于服务的注册和启动，信号处理，使用 Wire 构建依赖。可以使用自己熟悉的框架。
 
-## 解决
+### 解决
 
 实现代码参见：[go-web-service](go-web-service)
 
