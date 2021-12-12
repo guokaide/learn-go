@@ -1,5 +1,69 @@
 # learn-go
 
+## Redis Benchmark
+
+### 问题
+
+> 1.使用 redis benchmark 工具, 测试 10 20 50 100 200 1k 5k 字节 value 大小，redis get set 性能。
+>
+> 2.写入一定量的 kv 数据, 根据数据大小 1w-50w 自己评估, 结合写入前后的 info memory 信息 , 分析上述不同 value 大小下，平均每个 key 的占用内存空间。
+
+### 解决
+
+#### 1. Redis benchmark
+
+> redis-benchmark -t set,get -n 100000 -d <size>
+
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 10
+> SET: 139664.80 requests per second
+> GET: 144300.14 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 20
+> SET: 140449.44 requests per second
+> GET: 142857.14 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 50
+> SET: 137362.64 requests per second
+> GET: 140252.45 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 100
+> SET: 138312.59 requests per second
+> GET: 138888.89 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 200
+> SET: 137362.64 requests per second
+> GET: 138696.25 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 1000
+> SET: 138312.59 requests per second
+> GET: 139470.02 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 5000
+> SET: 132978.73 requests per second
+> GET: 133868.81 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 10000
+> SET: 127064.80 requests per second
+> GET: 125786.16 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 50000
+> SET: 22925.26 requests per second
+> GET: 37078.23 requests per second
+>
+> ❯ redis-benchmark -t set,get -q -n 100000 -d 100000
+> SET: 20824.66 requests per second
+> GET: 34770.52 requests per second
+
+随着 value 的大小越来越大，SET、GET 的性能会逐渐下降；当 value 的大小在 10k 字节以内时，SET、GET 的性能相对比较好，当 value 的大小超过 10k 字节之后，SET、GET 的性能下降比较厉害。
+
+#### 2. Redis key memory analysis
+
+分析代码见：[go-redis/main.go](go-redis/main.go)
+
+由 [分析结果](go-redis/reports/redis-analysis-localhost-6379-0.csv) 可以看出，随着 value 的大小越来越大，其 key 的大小也会越来越大。
+
+
+
 ## Rolling Window Counter
 
 ### 问题
