@@ -27,13 +27,15 @@
 
 根据 Goim 协议解析即可：
 
-> Goim 协议结构
-> PacketLen 4 bytes 包长度，在数据流传输过程中，先写入整个包的长度，方便整个包的数据读取。
-> HeaderLen 2 bytes 头长度，在处理数据时，会先解析头部，可以知道具体业务操作。
-> Version       2 bytes 协议版本号，主要用于上行和下行数据包按版本号进行解析。
-> Operation   4 bytes 业务操作码，可以按操作码进行分发数据包到具体业务当中。
-> Sequence   4 bytes 序列号，数据包的唯一标记，可以做具体业务处理，或者数据包去重。
-> Body           PacketLen - HeaderLen 实际业务数据，在业务层中会进行数据解码和编码。
+```Go
+// Goim 协议结构
+// PacketLen 4 bytes 包长度，在数据流传输过程中，先写入整个包的长度，方便整个包的数据读取。
+// HeaderLen 2 bytes 头长度，在处理数据时，会先解析头部，可以知道具体业务操作。
+// Version   2 bytes 协议版本号，主要用于上行和下行数据包按版本号进行解析。
+// Operation 4 bytes 业务操作码，可以按操作码进行分发数据包到具体业务当中。
+// Sequence  4 bytes 序列号，数据包的唯一标记，可以做具体业务处理，或者数据包去重。
+// Body      PacketLen - HeaderLen 实际业务数据，在业务层中会进行数据解码和编码。
+```
 
 见：[go-examples/goim/main.go](go-examples/goim/main.go)
 
